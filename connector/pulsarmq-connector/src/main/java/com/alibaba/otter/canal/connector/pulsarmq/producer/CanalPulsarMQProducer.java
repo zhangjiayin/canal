@@ -332,10 +332,11 @@ public class CanalPulsarMQProducer extends AbstractMQProducer implements CanalMQ
         byte[] msgBytes = CanalMessageSerializerUtil.serializer(msg, mqProperties.isFilterTransactionEntry());
         try {
             if(asyncSend) {
-                producer.newMessage()
+                CompletableFuture<MessageId> future = producer.newMessage()
                         .property(MSG_PROPERTY_PARTITION_NAME, String.valueOf(partitionNum))
                         .value(msgBytes)
                         .sendAsync();
+                future.join();
                 if (logger.isDebugEnabled()) {
                     logger.debug("Async Send  Message to topic:{}", topic);
                 }
