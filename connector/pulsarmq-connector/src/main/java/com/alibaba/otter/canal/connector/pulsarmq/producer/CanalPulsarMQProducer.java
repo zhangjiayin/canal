@@ -2,6 +2,7 @@ package com.alibaba.otter.canal.connector.pulsarmq.producer;
 
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -367,32 +368,32 @@ public class CanalPulsarMQProducer extends AbstractMQProducer implements CanalMQ
      */
     private void sendMessage(String topic, int partition, List<FlatMessage> flatMessages) {
         Producer<byte[]> producer = getProducer(topic);
-        for (FlatMessage f : flatMessages) {
-            try {
-                if(asyncSend) {
-                    producer.newMessage()
+        try {
+            if (asyncSend) {
+                List<CompletableFuture<MessageId>> futures = new ArrayList<>(flatMessages.size());
+                for (FlatMessage f : flatMessages) {
+                    futures.add(producer.newMessage()
                             .property(MSG_PROPERTY_PARTITION_NAME, String.valueOf(partition))
                             .value(JSON.toJSONBytes(f, Feature.WriteNulls, JSONWriter.Feature.LargeObject))
-                            .sendAsync()
-                            //
-                            ;
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Send Messages to topic:{}", topic);
-                    }
-                } else {
+                            .sendAsync());
+                }
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Async send {} messages to topic:{}", flatMessages.size(), topic);
+                }
+            } else {
+                for (FlatMessage f : flatMessages) {
                     MessageId msgResultId = producer.newMessage()
                             .property(MSG_PROPERTY_PARTITION_NAME, String.valueOf(partition))
                             .value(JSON.toJSONBytes(f, Feature.WriteNulls, JSONWriter.Feature.LargeObject))
-                            .send()
-                            //
-                            ;
+                            .send();
                     if (logger.isDebugEnabled()) {
                         logger.debug("Send Messages to topic:{} Result: {}", topic, msgResultId);
                     }
                 }
-            } catch (Throwable e) {
-                throw new RuntimeException(e);
             }
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
         }
     }
 
