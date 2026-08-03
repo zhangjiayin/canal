@@ -142,9 +142,71 @@ public class ESConnection {
             logger.error(e.getMessage(), e);
             return null;
         }
+
+        // 通过别名查询mapping返回的是真实索引名称，mappings.get(index)返回null，为兼容别名情况修改如下：
         mappingMetaData = mappings.get(index);
+        if (mappingMetaData == null && !mappings.isEmpty()) {
+            // 如果通过索引名找不到，可能是别名，取第一个映射
+            mappingMetaData = mappings.values().iterator().next();
+        }
+
+        // 如果还是null，说明索引不存在或没有mapping
+        if (mappingMetaData == null) {
+            throw new IllegalArgumentException("Not found the mapping info of index: " + index);
+        }
 
         return mappingMetaData;
+    }
+
+    public RestHighLevelClient getRestHighLevelClient() {
+        return restHighLevelClient;
+    }
+
+    public void setRestHighLevelClient(RestHighLevelClient restHighLevelClient) {
+        this.restHighLevelClient = restHighLevelClient;
+    }
+
+    private HttpHost createHttpHost(String uriStr) {
+        URI uri = URI.create(uriStr);
+        if (!org.springframework.util.StringUtils.hasLength(uri.getUserInfo())) {
+            return HttpHost.create(uri.toString());
+        }
+        try {
+            return HttpHost.create(new URI(uri
+                .getScheme(), null, uri.getHost(), uri.getPort(), uri.getPath(), uri.getQuery(), uri.getFragment())
+                    .toString());
+        } catch (URISyntaxException ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
+    public static class ES8xBulkResponse implements ESBulkRequest.ESBulkResponse {
+
+        private BulkResponse bulkResponse;
+
+        public ES8xBulkResponse(BulkResponse bulkResponse){
+            this.bulkResponse = bulkResponse;
+        }
+
+        @Override
+        public boolean hasFailures() {
+            return bulkResponse.hasFailures();
+        }
+
+        @Override
+        public void processFailBulkResponse(String errorMsg) {
+            for (BulkItemResponse itemResponse : bulkResponse.getItems()) {
+                if (!itemResponse.isFailed()) {
+                    continue;
+                }
+
+                if (itemResponse.getFailure().getStatus() == RestStatus.NOT_FOUND) {
+                    logger.error(itemResponse.getFailureMessage());
+                } else {
+                    throw new RuntimeException(errorMsg + itemResponse.getFailureMessage());
+                }
+            }
+        }
     }
 
     public class ES8xIndexRequest implements ESBulkRequest.ESIndexRequest {
@@ -393,57 +455,6 @@ public class ESConnection {
 
         public void setBulkRequest(BulkRequest bulkRequest) {
             this.bulkRequest = bulkRequest;
-        }
-    }
-
-    public static class ES8xBulkResponse implements ESBulkRequest.ESBulkResponse {
-
-        private BulkResponse bulkResponse;
-
-        public ES8xBulkResponse(BulkResponse bulkResponse){
-            this.bulkResponse = bulkResponse;
-        }
-
-        @Override
-        public boolean hasFailures() {
-            return bulkResponse.hasFailures();
-        }
-
-        @Override
-        public void processFailBulkResponse(String errorMsg) {
-            for (BulkItemResponse itemResponse : bulkResponse.getItems()) {
-                if (!itemResponse.isFailed()) {
-                    continue;
-                }
-
-                if (itemResponse.getFailure().getStatus() == RestStatus.NOT_FOUND) {
-                    logger.error(itemResponse.getFailureMessage());
-                } else {
-                    throw new RuntimeException(errorMsg + itemResponse.getFailureMessage());
-                }
-            }
-        }
-    }
-
-    public RestHighLevelClient getRestHighLevelClient() {
-        return restHighLevelClient;
-    }
-
-    public void setRestHighLevelClient(RestHighLevelClient restHighLevelClient) {
-        this.restHighLevelClient = restHighLevelClient;
-    }
-
-    private HttpHost createHttpHost(String uriStr) {
-        URI uri = URI.create(uriStr);
-        if (!org.springframework.util.StringUtils.hasLength(uri.getUserInfo())) {
-            return HttpHost.create(uri.toString());
-        }
-        try {
-            return HttpHost.create(new URI(uri
-                .getScheme(), null, uri.getHost(), uri.getPort(), uri.getPath(), uri.getQuery(), uri.getFragment())
-                    .toString());
-        } catch (URISyntaxException ex) {
-            throw new IllegalStateException(ex);
         }
     }
 }

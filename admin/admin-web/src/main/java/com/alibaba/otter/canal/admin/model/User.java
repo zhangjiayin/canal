@@ -44,6 +44,9 @@ public class User extends Model {
     @Transient
     private String oldPassword;
 
+    @Transient
+    private boolean defaultPassword;
+
     public Long getId() {
         return id;
     }
@@ -114,5 +117,13 @@ public class User extends Model {
 
     public void setOldPassword(String oldPassword) {
         this.oldPassword = oldPassword;
+    }
+
+    public boolean isDefaultPassword() {
+        return defaultPassword;
+    }
+
+    public void setDefaultPassword(boolean defaultPassword) {
+        this.defaultPassword = defaultPassword;
     }
 }

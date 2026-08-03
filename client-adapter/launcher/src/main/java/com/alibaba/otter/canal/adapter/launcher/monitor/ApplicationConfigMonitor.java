@@ -18,7 +18,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.context.refresh.ContextRefresher;
 import org.springframework.stereotype.Component;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import com.alibaba.otter.canal.adapter.launcher.loader.CanalAdapterService;
 import com.alibaba.otter.canal.client.adapter.support.Util;
@@ -70,7 +72,7 @@ public class ApplicationConfigMonitor {
             super.onFileChange(file);
             try {
                 // 检查yml格式
-                new Yaml().loadAs(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8), Map.class);
+                new Yaml(new SafeConstructor(new LoaderOptions())).loadAs(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8), Map.class);
 
                 canalAdapterService.destroy();
 

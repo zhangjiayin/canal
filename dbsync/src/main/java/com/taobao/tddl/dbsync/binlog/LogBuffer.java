@@ -188,8 +188,9 @@ public class LogBuffer {
      * <tt>newLimit</tt> do not hold
      */
     public final LogBuffer limit(int newLimit) {
-        if (origin + newLimit > buffer.length || newLimit < 0) throw new IllegalArgumentException("capacity excceed: "
-                                                                                                  + (origin + newLimit));
+        if (origin + newLimit > buffer.length || newLimit < 0) {
+            throw new IllegalArgumentException("capacity excceed: " + (origin + newLimit));
+        }
 
         limit = newLimit;
         return this;
@@ -1151,6 +1152,23 @@ public class LogBuffer {
             /* empty loop */;
 
         String string = new String(buf, from, found - from, charset);
+        position += len;
+        return string;
+    }
+
+    /**
+     * Return next fix length string from buffer.
+     * see json_binary.cc read_variable_length
+     */
+    public final String getFixLengthString(final int len, Charset charset) {
+        if (position + len > origin + limit) {
+            throw new IllegalArgumentException("limit excceed: " + (position + len - origin));
+        }
+
+        final int from = position;
+        byte[] buf = buffer;
+
+        String string = new String(buf, from, len, charset);
         position += len;
         return string;
     }

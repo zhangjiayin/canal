@@ -7,6 +7,7 @@ test-output/
 .settings/
 tmp
 temp
+logs/
 *.log
 antx.properties
 otter.properties
@@ -18,6 +19,8 @@ jtester.properties
 *.rpm
 client-adapter/example/
 *.dat
+.qwen/
+.vscode/
 conf/
 canal-admin/canal-admin-ui/dist/
 canal-admin/canal-admin-ui/node/

@@ -40,7 +40,7 @@ public class ClickHouseEtlService extends AbstractEtlService {
     public EtlResult importData(List<String> params) {
         DbMapping dbMapping = config.getDbMapping();
         DruidDataSource dataSource = DatasourceConfig.DATA_SOURCES.get(config.getDataSourceKey());
-        String sql = "SELECT * FROM " + SyncUtil.getDbTableName(dbMapping, dataSource.getDbType());
+        String sql = "SELECT * FROM " + SyncUtil.getSourceDbTableName(dbMapping, dataSource.getDbType());
         return importData(sql, params);
     }
 
@@ -126,13 +126,13 @@ public class ClickHouseEtlService extends AbstractEtlService {
 
                             int i = 1;
                             for (Map.Entry<String, String> entry : columnsMap.entrySet()) {
-                                String targetClolumnName = entry.getKey();
+                                String targetColumnName = entry.getKey();
                                 String srcColumnName = entry.getValue();
                                 if (srcColumnName == null) {
-                                    srcColumnName = targetClolumnName;
+                                    srcColumnName = targetColumnName;
                                 }
 
-                                Integer type = columnType.get(targetClolumnName.toLowerCase());
+                                Integer type = columnType.get(targetColumnName.toLowerCase());
                                 Object value = rs.getObject(srcColumnName);
                                 if (value != null) {
                                     SyncUtil.setPStmt(type, pstmt, value, i);

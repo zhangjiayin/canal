@@ -107,8 +107,7 @@ public class MysqlConnector {
                 sslVersion,
                 sslCipher);
         } catch (Exception e) {
-            logger.info("Can't show SSL status, server may not standard MySQL server: {}", e.toString());
-            logger.debug("show SSL status exception", e);
+            logger.warn("Can't show SSL status, server may not standard MySQL server", e);
         }
     }
 
@@ -197,6 +196,7 @@ public class MysqlConnector {
         }
         HandshakeInitializationPacket handshakePacket = new HandshakeInitializationPacket();
         handshakePacket.fromBytes(body);
+        // default utf8(33)
         byte serverCharsetNumber = (handshakePacket.serverCharsetNumber != 0) ? handshakePacket.serverCharsetNumber : 33;
         SslMode sslMode = sslInfo != null ? sslInfo.getSslMode() : SslMode.DISABLED;
         if (sslMode != SslMode.DISABLED) {
@@ -224,9 +224,10 @@ public class MysqlConnector {
         serverVersion = handshakePacket.serverVersion; // 记录serverVersion
         logger.info("handshake initialization packet received, prepare the client authentication packet to send");
         // 某些老协议的 server 默认不返回 auth plugin，需要使用默认的 mysql_native_password
-        String authPluginName = (handshakePacket.authPluginName != null
-                                 && handshakePacket.authPluginName.length > 0) ? new String(
-                                     handshakePacket.authPluginName) : "mysql_native_password";
+        String authPluginName = "mysql_native_password";
+        if (handshakePacket.authPluginName != null && handshakePacket.authPluginName.length > 0) {
+            authPluginName = new String(handshakePacket.authPluginName);
+        }
         logger.info("auth plugin: {}", authPluginName);
         boolean isSha2Password = false;
         ClientAuthenticationPacket clientAuth;
@@ -254,9 +255,7 @@ public class MysqlConnector {
         logger.info("client authentication packet is sent out.");
 
         // check auth result
-        header = null;
         header = PacketManager.readHeader(channel, 4);
-        body = null;
         body = PacketManager.readBytes(channel, header.getPacketBodyLength(), timeout);
         assert body != null;
         byte marker = body[0];
@@ -268,7 +267,7 @@ public class MysqlConnector {
                 body = PacketManager.readBytes(channel, header.getPacketBodyLength(), timeout);
             } else {
                 byte[] authData = null;
-                String pluginName = null;
+                String pluginName = authPluginName;
                 if (marker == 1) {
                     AuthSwitchRequestMoreData packet = new AuthSwitchRequestMoreData();
                     packet.fromBytes(body);
@@ -295,23 +294,33 @@ public class MysqlConnector {
                     header = authSwitchAfterAuth(encryptedPassword, header);
                     body = PacketManager.readBytes(channel, header.getPacketBodyLength(), timeout);
                 } else if ("caching_sha2_password".equals(pluginName)) {
-                    byte[] scramble = authData;
-                    try {
-                        encryptedPassword = MySQLPasswordEncrypter.scrambleCachingSha2(getPassword().getBytes(),
-                            scramble);
-                    } catch (DigestException e) {
-                        throw new RuntimeException("can't encrypt password that will be sent to MySQL server.", e);
-                    }
-                    header = authSwitchAfterAuth(encryptedPassword, header);
-                    body = PacketManager.readBytes(channel, header.getPacketBodyLength(), timeout);
-                    assert body != null;
                     if (body[0] == 0x01 && body[1] == 0x04) {
-                        // fixed issue https://github.com/alibaba/canal/pull/4767, support mysql 8.0.30+
-                        header = cachingSha2PasswordFullAuth(channel, header, getPassword().getBytes(), scramble);
+                        // support full auth
+                        // clientAuth提前采用了sha2编码,会减少一次auth交互
+                        header = cachingSha2PasswordFullAuth(channel,
+                            header,
+                            getPassword().getBytes(),
+                            clientAuth.getScrumbleBuff());
                         body = PacketManager.readBytes(channel, header.getPacketBodyLength(), timeout);
                     } else {
-                        header = PacketManager.readHeader(channel, 4);
+                        byte[] scramble = authData;
+                        try {
+                            encryptedPassword = MySQLPasswordEncrypter.scrambleCachingSha2(getPassword().getBytes(),
+                                scramble);
+                        } catch (DigestException e) {
+                            throw new RuntimeException("can't encrypt password that will be sent to MySQL server.", e);
+                        }
+                        header = authSwitchAfterAuth(encryptedPassword, header);
                         body = PacketManager.readBytes(channel, header.getPacketBodyLength(), timeout);
+                        assert body != null;
+                        if (body[0] == 0x01 && body[1] == 0x04) {
+                            // fixed issue https://github.com/alibaba/canal/pull/4767, support mysql 8.0.30+
+                            header = cachingSha2PasswordFullAuth(channel, header, getPassword().getBytes(), scramble);
+                            body = PacketManager.readBytes(channel, header.getPacketBodyLength(), timeout);
+                        } else {
+                            header = PacketManager.readHeader(channel, 4);
+                            body = PacketManager.readBytes(channel, header.getPacketBodyLength(), timeout);
+                        }
                     }
                 } else {
                     header = authSwitchAfterAuth(encryptedPassword, header);
@@ -348,9 +357,9 @@ public class MysqlConnector {
         if (packet.status != 0x01) {
             throw new IOException("caching_sha2_password get public key failed");
         }
+
         logger.info("caching sha2 password fullAuth get server public key succeed.");
         byte[] publicKeyBytes = packet.authData;
-
         byte[] encryptedPassword = null;
         try {
             encryptedPassword = MySQLPasswordEncrypter.scrambleRsa(publicKeyBytes, pass, seed);

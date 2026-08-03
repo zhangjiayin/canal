@@ -3,6 +3,8 @@ package com.alibaba.otter.canal.admin.service.impl;
 import java.security.NoSuchAlgorithmException;
 
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.alibaba.otter.canal.admin.common.exception.ServiceException;
@@ -19,7 +21,11 @@ import com.alibaba.otter.canal.protocol.SecurityUtil;
 @Service
 public class UserServiceImpl implements UserService {
 
-    private static byte[] seeds = "canal is best!".getBytes();
+    private static final Logger  logger                = LoggerFactory.getLogger(UserServiceImpl.class);
+
+    private static final String  DEFAULT_PASSWORD_HASH = "6BB4837EB74329105EE4568DDA7DC67ED2CA2AD9";
+
+    private static byte[]        seeds                 = "canal is best!".getBytes();
 
     private static final Integer PASSWORD_LENGTH = 5;
 
@@ -38,6 +44,11 @@ public class UserServiceImpl implements UserService {
             }
         } catch (NoSuchAlgorithmException e) {
             throw new ServiceException("user:" + user.getName() + " auth failed!");
+        }
+
+        if (DEFAULT_PASSWORD_HASH.equalsIgnoreCase(user.getPassword())) {
+            user.setDefaultPassword(true);
+            logger.warn("Default admin password detected for user: {}. Please change immediately.", username);
         }
 
         user.setPassword("");

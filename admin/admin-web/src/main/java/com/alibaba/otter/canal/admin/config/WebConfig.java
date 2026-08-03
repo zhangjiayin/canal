@@ -98,6 +98,26 @@ public class WebConfig implements WebMvcConfigurer {
                     return false;
                 }
 
+                // 检查是否使用默认密码，如果是则仅允许改密和登出操作
+                User validUser = (User) httpServletRequest.getAttribute("user");
+                if (validUser != null && validUser.isDefaultPassword()) {
+                    String uri = httpServletRequest.getRequestURI();
+                    String method = httpServletRequest.getMethod();
+                    boolean isPasswordChange = "PUT".equals(method) && uri.matches("/api/[^/]+/user");
+                    boolean isLogout = uri.contains("/user/logout");
+                    if (!isPasswordChange && !isLogout) {
+                        BaseModel baseModel = BaseModel.getInstance(null);
+                        baseModel.setCode(50015);
+                        baseModel.setMessage("Default password must be changed before proceeding");
+                        ObjectMapper mapper = new ObjectMapper();
+                        String json = mapper.writeValueAsString(baseModel);
+                        httpServletResponse.setContentType("application/json;charset=UTF-8");
+                        PrintWriter out = httpServletResponse.getWriter();
+                        out.print(json);
+                        return false;
+                    }
+                }
+
                 return true;
             }
         })

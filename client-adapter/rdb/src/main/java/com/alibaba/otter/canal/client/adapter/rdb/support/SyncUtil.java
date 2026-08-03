@@ -284,6 +284,17 @@ public class SyncUtil {
         return result;
     }
 
+    public static String getSourceDbTableName(MappingConfig.DbMapping dbMapping, String dbType) {
+        String result = "";
+        String backtick = getBacktickByDbType(dbType);
+        if (StringUtils.isNotEmpty(dbMapping.getDatabase())) {
+            result += (backtick + dbMapping.getDatabase() + backtick + ".");
+        }
+
+        result += (backtick + dbMapping.getTable() + backtick);
+        return result;
+    }
+
     /**
      * 根据DbType返回反引号或空字符串
      *
@@ -302,6 +313,9 @@ public class SyncUtil {
             case mariadb:
             case oceanbase:
                 return "`";
+        //  当dbType 为 postgresql时，返回双引号(避免表名为postgresql的关键字时，sql查询报错)
+            case postgresql:
+                return "\"";
             default:
                 return "";
         }

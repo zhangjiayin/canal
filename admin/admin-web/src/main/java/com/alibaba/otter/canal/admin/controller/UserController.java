@@ -56,6 +56,9 @@ public class UserController {
             String token = UUID.randomUUID().toString();
             loginUsers.put(token, loginUser);
             tokenResp.put("token", token);
+            if (loginUser.isDefaultPassword()) {
+                tokenResp.put("needPasswordChange", "true");
+            }
             return BaseModel.getInstance(tokenResp);
         } else {
             BaseModel<Map<String, String>> model = BaseModel.getInstance(null);
@@ -98,6 +101,7 @@ public class UserController {
                                     HttpServletRequest httpServletRequest) {
         userService.update(user);
         String token = (String) httpServletRequest.getAttribute("token");
+        user.setDefaultPassword(false);
         loginUsers.put(token, user);
         return BaseModel.getInstance("success");
     }

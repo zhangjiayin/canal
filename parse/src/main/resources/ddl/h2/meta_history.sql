@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `meta_history` (
   `use_schema` varchar(1024) DEFAULT NULL COMMENT '执行sql时对应的schema',
   `sql_schema` varchar(1024) DEFAULT NULL COMMENT '对应的schema',
   `sql_table` varchar(1024) DEFAULT NULL COMMENT '对应的table',
-  `sql_text` longtext DEFAULT NULL COMMENT '执行的sql',
+  `sql_text` CLOB DEFAULT NULL COMMENT '执行的sql',
   `sql_type` varchar(256) DEFAULT NULL COMMENT 'sql类型',
   `extra` text DEFAULT NULL COMMENT '额外的扩展信息',
   PRIMARY KEY (`id`),

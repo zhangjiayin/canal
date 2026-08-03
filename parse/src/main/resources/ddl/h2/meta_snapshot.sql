@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `meta_snapshot` (
   `binlog_offest` bigint(20) DEFAULT NULL COMMENT 'binlog偏移量',
   `binlog_master_id` varchar(64) DEFAULT NULL COMMENT 'binlog节点id',
   `binlog_timestamp` bigint(20) DEFAULT NULL COMMENT 'binlog应用的时间戳',
-  `data` longtext DEFAULT NULL COMMENT '表结构数据',
+  `data` CLOB DEFAULT NULL COMMENT '表结构数据',
   `extra` text DEFAULT NULL COMMENT '额外的扩展信息',
   PRIMARY KEY (`id`),
   UNIQUE KEY meta_snapshot_binlog_file_offest(`destination`,`binlog_master_id`,`binlog_file`,`binlog_offest`),

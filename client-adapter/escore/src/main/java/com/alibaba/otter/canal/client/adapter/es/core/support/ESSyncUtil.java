@@ -2,6 +2,7 @@ package com.alibaba.otter.canal.client.adapter.es.core.support;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Blob;
 import java.sql.SQLException;
@@ -101,11 +102,20 @@ public class ESSyncUtil {
                 break;
             case "float":
             case "half_float":
-            case "scaled_float":
                 if (val instanceof Number) {
                     res = ((Number) val).floatValue();
                 } else {
                     res = Float.parseFloat(val.toString());
+                }
+                break;
+            case "scaled_float":
+                // scaled_float 需要保持高精度，使用 BigDecimal 进行处理
+                if (val instanceof BigDecimal) {
+                    res = val; // 保持 BigDecimal 精度
+                } else if (val instanceof Number) {
+                    res = new BigDecimal(val.toString());
+                } else {
+                    res = new BigDecimal(val.toString());
                 }
                 break;
             case "boolean":
